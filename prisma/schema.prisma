@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  directUrl         = env("DIRECT_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model Sector {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  signatures  Signature[]
+  users       User[]
+
+  @@map("sectors")
+}
+
+model User {
+  id                String      @id @default(cuid())
+  username          String      @unique
+  password          String
+  name              String
+  role              UserRole    @default(COMMON)
+  sectorId          String
+  isFirstLogin      Boolean     @default(true)
+  securityQuestion  String?
+  securityAnswer    String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  respondedRequests Request[]   @relation("AdminResponses")
+  requests          Request[]
+  signatures        Signature[]
+  sector            Sector      @relation(fields: [sectorId], references: [id])
+
+  @@map("users")
+}
+
+model Signature {
+  id            String    @id @default(cuid())
+  userId        String
+  sectorId      String
+  serverName    String
+  sectorName    String
+  reason        String
+  token         String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  incrementalId Int       @unique @default(autoincrement()) @map("incremental_id")
+  requests      Request[]
+  sector        Sector    @relation(fields: [sectorId], references: [id])
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@map("signatures")
+}
+
+model Request {
+  id            String        @id @default(cuid())
+  type          RequestType
+  status        RequestStatus @default(PENDING)
+  userId        String
+  signatureId   String
+  reason        String
+  adminResponse String?
+  respondedById String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  respondedBy   User?         @relation("AdminResponses", fields: [respondedById], references: [id])
+  signature     Signature     @relation(fields: [signatureId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id])
+
+  @@index([status], name: "idx_req_status")
+  @@map("requests")
+}
+
+model ChatMessage {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([toUserId, isRead], name: "idx_chat_to")
+  @@map("chat_messages")
+}
+
+enum UserRole {
+  COMMON
+  ADMIN
+  SUPPORT
+}
+
+enum RequestType {
+  EDIT
+  DELETE
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
