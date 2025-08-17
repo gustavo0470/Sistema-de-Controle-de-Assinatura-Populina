@@ -30,21 +30,8 @@ export async function GET(request: NextRequest) {
       // Buscar dados completos do usuário com retry automático
       const user = await (await robustPrisma.user()).findUnique({
         where: { id: authUser.userId },
-        select: {
-          id: true,
-          username: true,
-          name: true,
-          role: true,
-          sectorId: true,
-          isFirstLogin: true,
-          securityQuestion: true,
-          sector: {
-            select: {
-              id: true,
-              name: true,
-              description: true
-            }
-          }
+        include: {
+          sector: true
         }
       })
 
@@ -63,7 +50,7 @@ export async function GET(request: NextRequest) {
         sectorId: user.sectorId,
         isFirstLogin: user.isFirstLogin,
         hasSecurityQuestion: !!user.securityQuestion,
-        sector: user.sector
+        sector: (user as any).sector || null
       }
 
       // Adicionar ao cache

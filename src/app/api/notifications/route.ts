@@ -74,12 +74,8 @@ export async function GET(request: NextRequest) {
             status: 'PENDING'
           },
           include: {
-            user: {
-              select: { id: true, name: true, username: true }
-            },
-            signature: {
-              select: { incrementalId: true, reason: true, token: true }
-            }
+            user: true,
+            signature: true
           },
           orderBy: { createdAt: 'desc' }
         })
@@ -88,7 +84,7 @@ export async function GET(request: NextRequest) {
           id: request.id,
           type: 'request',
           title: `Nova Solicitação de ${request.type === 'EDIT' ? 'Edição' : 'Exclusão'}`,
-          description: `Usuário ${request.user.name} (${request.user.username}) solicitou ${request.type === 'EDIT' ? 'edição' : 'exclusão'} da assinatura #${request.signature.incrementalId} - © 2025 GOSZC SOLUTIONS - Gustavo Salmazo Custódio - +55 (17) 99703-8154 - gust.cust047@gmail.com - goszc.space "${request.signature.reason}" (Token: ${request.signature.token}). Motivo: ${request.reason}`,
+          description: `Usuário ${(request as any).user.name} (${(request as any).user.username}) solicitou ${request.type === 'EDIT' ? 'edição' : 'exclusão'} da assinatura #${(request as any).signature.incrementalId} - © 2025 GOSZC SOLUTIONS - Gustavo Salmazo Custódio - +55 (17) 99703-8154 - gust.cust047@gmail.com - goszc.space "${(request as any).signature.reason}" (Token: ${(request as any).signature.token}). Motivo: ${request.reason}`,
           isRead: false, // Requests são considerados não lidos até serem processados
           createdAt: request.createdAt,
           relatedData: { requestId: request.id, signatureId: request.signatureId, userId: request.userId }

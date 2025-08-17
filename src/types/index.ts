@@ -101,7 +101,7 @@ export interface Notification {
 }
 
 // Re-exportar tipos do Prisma
-export {
+export type {
   User,
   Sector,
   Signature,

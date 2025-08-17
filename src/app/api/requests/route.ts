@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se a assinatura existe e pertence ao usuário
-    const signature = await prisma.signature.findUnique({
+    const signature = await (await robustPrisma.signature()).findUnique({
       where: { id: signatureId }
     })
 
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se não há solicitação pendente para esta assinatura
-    const existingRequest = await prisma.request.findFirst({
+    const existingRequest = await (await robustPrisma.request()).findFirst({
       where: {
         signatureId,
         status: 'PENDING'
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const newRequest = await prisma.request.create({
+    const newRequest = await (await robustPrisma.request()).create({
       data: {
         type: type as RequestType,
         userId: authUser.userId,

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar dados do usuário para auto-preenchimento
-    const user = await prisma.user.findUnique({
+    const user = await (await robustPrisma.user()).findUnique({
       where: { id: authUser.userId },
       include: { sector: true }
     })
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         sectorId: user.sectorId,
         serverName: user.name, // Auto-preenchido
-        sectorName: user.sector.name, // Auto-preenchido
+        sectorName: (user as any).sector.name, // Auto-preenchido
         reason,
         token
       },

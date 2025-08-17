@@ -1,23 +1,21 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getAuthUser } from '@/lib/middleware'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Verificar se é rota admin
   if (pathname.startsWith('/admin')) {
-    const authUser = await getAuthUser(request)
+    // Verificar se há cookie de autenticação
+    const authCookie = request.cookies.get('auth-token')
     
     // Se não estiver logado, redireciona para login
-    if (!authUser) {
+    if (!authCookie) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
     
-    // Se for usuário comum tentando acessar admin, redireciona para dashboard
-    if (authUser.role === 'COMMON') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
+    // Para verificação de role, deixar a API fazer isso
+    // O middleware só verifica se está autenticado
   }
 
   return NextResponse.next()
