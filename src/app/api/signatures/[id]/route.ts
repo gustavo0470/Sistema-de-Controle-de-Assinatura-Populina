@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/middleware'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 // Buscar assinatura específica
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -141,9 +147,12 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
       )
     }
 
-    // Verificar se assinatura existe
+    // Verificar se assinatura existe e buscar anexos
     const existingSignature = await prisma.signature.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        attachments: true
+      }
     })
 
     if (!existingSignature) {
@@ -161,9 +170,39 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
       )
     }
 
+    console.log(`🗑️ Deletando assinatura ${existingSignature.incrementalId} via API direta`)
+
+    // Deletar todos os arquivos anexados do storage primeiro
+    if (existingSignature.attachments && existingSignature.attachments.length > 0) {
+      console.log(`📁 Deletando ${existingSignature.attachments.length} anexos do storage...`)
+      
+      const filesToDelete = existingSignature.attachments.map(attachment => attachment.storagePath)
+      
+      try {
+        const { error: deleteError } = await supabase.storage
+          .from('attachments')
+          .remove(filesToDelete)
+
+        if (deleteError) {
+          console.error('Erro ao deletar alguns arquivos do storage:', deleteError)
+          // Continua com a exclusão mesmo se houver erro no storage
+        } else {
+          console.log(`✅ ${filesToDelete.length} arquivos deletados do storage com sucesso`)
+        }
+      } catch (storageError) {
+        console.error('Erro ao acessar storage:', storageError)
+        // Continua com a exclusão mesmo se houver erro no storage
+      }
+    } else {
+      console.log('📄 Nenhum anexo para deletar')
+    }
+
+    // Deletar assinatura do banco (incluirá cascata para attachments e requests)
     await prisma.signature.delete({
       where: { id }
     })
+
+    console.log(`✅ Assinatura ${existingSignature.incrementalId} deletada completamente via API direta`)
 
     return NextResponse.json({
       success: true,

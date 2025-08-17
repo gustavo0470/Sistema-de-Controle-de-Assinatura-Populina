@@ -146,7 +146,8 @@ export async function GET(request: NextRequest) {
         where,
         include: {
           user: true,
-          sector: true
+          sector: true,
+          attachments: true
         },
         orderBy: { createdAt: 'desc' },
         skip,

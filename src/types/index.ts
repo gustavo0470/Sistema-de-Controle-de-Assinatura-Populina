@@ -1,4 +1,4 @@
-import { User, Sector, Signature, Request, ChatMessage, UserRole, RequestType, RequestStatus } from '@prisma/client'
+import { User, Sector, Signature, Request, ChatMessage, SignatureAttachment, UserRole, RequestType, RequestStatus } from '@prisma/client'
 
 // Tipos com relacionamentos
 export type UserWithSector = User & {
@@ -8,6 +8,7 @@ export type UserWithSector = User & {
 export type SignatureWithRelations = Signature & {
   user: User
   sector: Sector
+  attachments?: SignatureAttachment[]
 }
 
 export type RequestWithRelations = Request & {
@@ -25,6 +26,22 @@ export type ChatMessageWithUsers = ChatMessage & {
 export interface CreateSignatureData {
   reason: string
   token: string
+  attachments?: File[]
+}
+
+// Tipos para anexos
+export interface AttachmentUploadData {
+  file: File
+  signatureId: string
+}
+
+export interface AttachmentResponse {
+  id: string
+  filename: string
+  fileSize: number
+  mimeType: string
+  uploadedAt: string
+  downloadUrl: string
 }
 
 export interface CreateRequestData {
@@ -107,6 +124,7 @@ export type {
   Signature,
   Request,
   ChatMessage,
+  SignatureAttachment,
   UserRole,
   RequestType,
   RequestStatus

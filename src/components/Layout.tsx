@@ -176,20 +176,21 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div className={`sidebar ${sidebarOpen ? 'block' : 'hidden'} lg:block fade-in mobile-scroll`}>
+      {/* Sidebar Desktop */}
+      <div className="hidden lg:block sidebar fade-in mobile-scroll">
         <div className="flex items-center justify-center h-16 bg-primary-600">
-          <h1 className="text-white text-lg font-display font-bold">
+          <h1 className="text-white text-lg font-display font-bold px-2 text-center">
             Sistema Assinaturas
           </h1>
         </div>
         
-        <nav className="mt-8">
+        <nav className="mt-8 pb-24">
           {navigation.map((item) => (
             <Link
               key={item.name}
               href={item.href}
               className={`nav-item ${item.current ? 'active' : ''} hover-lift transition-all duration-200 touch-optimization`}
+              onClick={() => setSidebarOpen(false)}
             >
               {item.icon}
               <span className="ml-3">{item.name}</span>
@@ -197,7 +198,7 @@ export default function Layout({ children }: LayoutProps) {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 w-full p-4 border-t border-gray-200">
+        <div className="absolute bottom-0 w-full p-4 border-t border-gray-200 bg-white">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
@@ -217,7 +218,67 @@ export default function Layout({ children }: LayoutProps) {
           </div>
           <button
             onClick={handleLogout}
-            className="mt-3 w-full text-left text-sm text-gray-500 hover:text-gray-700 transition-colors duration-200"
+            className="mt-3 w-full text-left text-sm text-gray-500 hover:text-gray-700 transition-colors duration-200 touch-optimization"
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Sidebar */}
+      <div className={`
+        lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white transform transition-transform duration-300 ease-in-out mobile-scroll
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className="flex items-center justify-between h-16 bg-primary-600 px-4">
+          <h1 className="text-white text-lg font-display font-bold">
+            Sistema
+          </h1>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="text-white p-2 hover:bg-primary-700 rounded-md"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <nav className="mt-8 pb-24">
+          {navigation.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`nav-item ${item.current ? 'active' : ''} hover-lift transition-all duration-200 touch-optimization`}
+              onClick={() => setSidebarOpen(false)}
+            >
+              {item.icon}
+              <span className="ml-3">{item.name}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="absolute bottom-0 w-full p-4 border-t border-gray-200 bg-white">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-medium">
+                  {user?.name?.charAt(0)?.toUpperCase()}
+                </span>
+              </div>
+            </div>
+            <div className="ml-3 min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {user?.name}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {user?.sector?.name}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="mt-3 w-full text-left text-sm text-gray-500 hover:text-gray-700 transition-colors duration-200 touch-optimization"
           >
             Sair
           </button>
@@ -227,7 +288,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -235,35 +296,55 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+            <div className="flex items-center">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 touch-optimization"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              
+              {/* Mobile title */}
+              <h1 className="lg:hidden ml-3 text-lg font-display font-bold text-gray-900">
+                Sistema
+              </h1>
+            </div>
             
             <div className="flex items-center">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 hidden sm:block">
                 Bem-vindo, <span className="font-medium">{user?.name}</span>
               </span>
+              
+              {/* Mobile user avatar */}
+              <div className="sm:hidden w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center ml-3">
+                <span className="text-white text-sm font-medium">
+                  {user?.name?.charAt(0)?.toUpperCase()}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Page content */}
-        <main className="p-4 sm:p-6 lg:p-8 pb-16">
-          {children}
+        <main className="p-2 sm:p-4 lg:p-8 pb-20 min-h-[calc(100vh-4rem)]">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
 
         {/* Footer / Watermark */}
-        <footer className="fixed bottom-0 left-0 right-0 lg:left-64 bg-gray-800 text-gray-300 text-xs py-2 px-4 z-30">
-          <div className="flex items-center justify-center">
-            <p className="text-center">
-              © 2025 GOSZC SOLUTIONS - Gustavo Salmazo Custódio - +55 (17) 99703-8154 - gust.cust047@gmail.com - <a href="https://goszc.space" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">goszc.space</a>
+        <footer className="bg-gray-800 text-gray-300 text-xs py-2 px-2 sm:px-4">
+          <div className="flex items-center justify-center text-center">
+            <p className="mobile-text-xs">
+              © 2025 GOSZC SOLUTIONS - 
+              <span className="hidden sm:inline"> Gustavo Salmazo Custódio - +55 (17) 99703-8154 - gust.cust047@gmail.com - </span>
+              <a href="https://goszc.space" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">
+                goszc.space
+              </a>
             </p>
           </div>
         </footer>

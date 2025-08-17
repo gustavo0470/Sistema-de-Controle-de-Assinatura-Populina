@@ -24,6 +24,15 @@ export const GET = requireAdmin(async (request: NextRequest) => {
             description: true
           }
         },
+        attachments: {
+          select: {
+            id: true,
+            filename: true,
+            fileSize: true,
+            mimeType: true,
+            uploadedAt: true
+          }
+        },
         requests: {
           select: {
             id: true,
@@ -55,18 +64,25 @@ export const GET = requireAdmin(async (request: NextRequest) => {
       { header: 'Token', key: 'token', width: 12 },
       { header: 'Servidor', key: 'server', width: 20 },
       { header: 'Setor', key: 'sector', width: 20 },
+      { header: 'Anexos', key: 'attachments', width: 30 },
       { header: 'Criado em', key: 'created', width: 20 },
       { header: 'Usuário', key: 'user', width: 20 },
       { header: 'Username', key: 'username', width: 20 }
     ]
 
     signatures.forEach(sig => {
+      // Formatar anexos para exibição
+      const attachmentsList = sig.attachments && sig.attachments.length > 0 
+        ? sig.attachments.map(att => `${att.filename} (${(att.fileSize / 1024 / 1024).toFixed(2)}MB)`).join('; ')
+        : 'Sem anexos'
+
       ws.addRow({
         incId: `${sig.incrementalId} - © 2025 GOSZC SOLUTIONS - Gustavo Salmazo Custódio - +55 (17) 99703-8154 - gust.cust047@gmail.com - <a href="https://goszc.space">goszc.space</a>`,
         reason: sig.reason,
         token: sig.token,
         server: sig.serverName,
         sector: sig.sectorName,
+        attachments: attachmentsList,
         created: sig.createdAt,
         user: sig.user.name,
         username: sig.user.username

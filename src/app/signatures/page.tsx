@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import Layout from '@/components/Layout'
 import Link from 'next/link'
+import FileUpload, { AttachmentList } from '@/components/FileUpload'
+import { AttachmentResponse } from '@/types'
 
 interface Signature {
   id: string
@@ -18,6 +20,13 @@ interface Signature {
   sector: {
     name: string
   }
+  attachments?: {
+    id: string
+    filename: string
+    fileSize: number
+    mimeType: string
+    uploadedAt: string
+  }[]
 }
 
 interface Pagination {
@@ -48,6 +57,9 @@ export default function SignaturesPage() {
   const [servers, setServers] = useState<string[]>([])
   const [sectors, setSectors] = useState<any[]>([])
   const [showRequestModal, setShowRequestModal] = useState(false)
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState(false)
+  const [selectedSignatureAttachments, setSelectedSignatureAttachments] = useState<any[]>([])
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false)
   const [selectedSignature, setSelectedSignature] = useState<Signature | null>(null)
   const [requestForm, setRequestForm] = useState({
     type: 'DELETE' as 'EDIT' | 'DELETE',
@@ -66,6 +78,9 @@ export default function SignaturesPage() {
   const [editLoading, setEditLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
   const [editableSignatures, setEditableSignatures] = useState<Set<string>>(new Set())
+  const [editingAttachments, setEditingAttachments] = useState<AttachmentResponse[]>([])
+  const [loadingAttachments, setLoadingAttachments] = useState(false)
+  const [uploadError, setUploadError] = useState('')
 
   const fetchSignatures = async () => {
     setLoading(true)
@@ -241,7 +256,39 @@ export default function SignaturesPage() {
     }
   }
 
-  const openEditModal = (signature: Signature) => {
+  const loadSignatureAttachments = async (signatureId: string) => {
+    setLoadingAttachments(true)
+    try {
+      const response = await fetch(`/api/attachments?signatureId=${signatureId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setEditingAttachments(data.data.attachments || [])
+      } else {
+        console.error('Erro ao carregar anexos')
+        setEditingAttachments([])
+      }
+    } catch (error) {
+      console.error('Erro ao carregar anexos:', error)
+      setEditingAttachments([])
+    } finally {
+      setLoadingAttachments(false)
+    }
+  }
+
+  const handleUploadComplete = (attachment: AttachmentResponse) => {
+    setEditingAttachments([...editingAttachments, attachment])
+    setUploadError('')
+  }
+
+  const handleUploadError = (error: string) => {
+    setUploadError(error)
+  }
+
+  const handleDeleteAttachment = (attachmentId: string) => {
+    setEditingAttachments(editingAttachments.filter(a => a.id !== attachmentId))
+  }
+
+  const openEditModal = async (signature: Signature) => {
     setEditingSignature(signature)
     setEditForm({
       reason: signature.reason,
@@ -250,6 +297,10 @@ export default function SignaturesPage() {
     setShowEditModal(true)
     setError('')
     setSuccess('')
+    setUploadError('')
+    
+    // Carregar anexos atuais da assinatura
+    await loadSignatureAttachments(signature.id)
   }
 
   // Editar via aprovação (para usuários comuns com request aprovado)
@@ -262,6 +313,10 @@ export default function SignaturesPage() {
     setShowEditModal(true)
     setError('')
     setSuccess('')
+    setUploadError('')
+    
+    // Carregar anexos atuais da assinatura
+    await loadSignatureAttachments(signature.id)
   }
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -346,6 +401,40 @@ export default function SignaturesPage() {
     return new Date(dateString).toLocaleString('pt-BR')
   }
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const openAttachmentsModal = async (signature: Signature) => {
+    if (!signature.attachments || signature.attachments.length === 0) {
+      alert('Esta assinatura não possui anexos.')
+      return
+    }
+
+    setSelectedSignatureAttachments(signature.attachments)
+    setShowAttachmentsModal(true)
+  }
+
+  const downloadAttachment = async (attachmentId: string, filename: string) => {
+    try {
+      const response = await fetch(`/api/attachments/${attachmentId}`)
+      const data = await response.json()
+
+      if (data.success) {
+        window.open(data.data.downloadUrl, '_blank')
+      } else {
+        alert('Erro ao gerar link de download: ' + data.error)
+      }
+    } catch (error) {
+      console.error('Erro ao baixar anexo:', error)
+      alert('Erro ao baixar anexo')
+    }
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -359,7 +448,7 @@ export default function SignaturesPage() {
               Gerencie e visualize suas assinaturas
             </p>
           </div>
-          <Link href="/dashboard" className="btn-primary">
+          <Link href="/signatures/create" className="btn-primary">
             Nova Assinatura
           </Link>
         </div>
@@ -386,7 +475,7 @@ export default function SignaturesPage() {
           </div>
 
           <form onSubmit={handleFilterSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mobile-grid-1 mobile-gap-2">
               <div className="form-group">
                 <label htmlFor="search" className="form-label">
                   Buscar
@@ -491,11 +580,11 @@ export default function SignaturesPage() {
               </div>
             </div>
 
-            <div className="flex space-x-3">
-              <button type="submit" className="btn-primary">
+            <div className="flex space-x-3 mobile-stack mobile-space-y-2">
+              <button type="submit" className="btn-primary mobile-full">
                 Filtrar
               </button>
-              <button type="button" onClick={clearFilters} className="btn-secondary">
+              <button type="button" onClick={clearFilters} className="btn-secondary mobile-full">
                 Limpar Filtros
               </button>
             </div>
@@ -522,9 +611,10 @@ export default function SignaturesPage() {
                     <tr>
                       <th className="table-header-cell">Motivo</th>
                       <th className="table-header-cell">Token</th>
-                      <th className="table-header-cell">Servidor</th>
-                      <th className="table-header-cell">Setor</th>
-                      <th className="table-header-cell">Data</th>
+                      <th className="table-header-cell mobile-hide">Servidor</th>
+                      <th className="table-header-cell mobile-hide">Setor</th>
+                      <th className="table-header-cell">Anexos</th>
+                      <th className="table-header-cell mobile-hide">Data</th>
                       <th className="table-header-cell">Ações</th>
                     </tr>
                   </thead>
@@ -535,34 +625,63 @@ export default function SignaturesPage() {
                           <div className="max-w-xs truncate" title={signature.reason}>
                             {signature.reason}
                           </div>
+                          {/* Mobile info */}
+                          <div className="sm:hidden text-xs text-gray-500 mt-1">
+                            {signature.serverName} • {signature.sectorName}
+                            <br />
+                            {formatDate(signature.createdAt)}
+                          </div>
                         </td>
                         <td className="table-cell">
                           <span className="badge badge-info">
                             {signature.token}
                           </span>
                         </td>
-                        <td className="table-cell">{signature.serverName}</td>
-                        <td className="table-cell">{signature.sectorName}</td>
+                        <td className="table-cell mobile-hide">{signature.serverName}</td>
+                        <td className="table-cell mobile-hide">{signature.sectorName}</td>
                         <td className="table-cell">
+                          {signature.attachments && signature.attachments.length > 0 ? (
+                            <button
+                              onClick={() => openAttachmentsModal(signature)}
+                              className="flex items-center space-x-1 hover:bg-green-50 p-1 rounded transition-colors"
+                              title="Clique para ver detalhes dos anexos"
+                            >
+                              <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-sm text-green-600 font-medium underline">
+                                {signature.attachments.length} arquivo{signature.attachments.length > 1 ? 's' : ''}
+                              </span>
+                              <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </button>
+                          ) : (
+                            <span className="text-sm text-gray-400">
+                              Sem anexos
+                            </span>
+                          )}
+                        </td>
+                        <td className="table-cell mobile-hide">
                           <span className="text-sm text-gray-500">
                             {formatDate(signature.createdAt)}
                           </span>
                         </td>
                         <td className="table-cell">
-                          <div className="flex space-x-2">
+                          <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                             {currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'SUPPORT') ? (
                               // Botões diretos para admin/suporte
                               <>
                                 <button 
                                   onClick={() => openEditModal(signature)}
-                                  className="text-primary-600 hover:text-primary-800 text-sm"
+                                  className="text-primary-600 hover:text-primary-800 text-sm px-2 py-1 rounded touch-optimization mobile-text-xs"
                                   disabled={editLoading || deleteLoading === signature.id}
                                 >
                                   {editLoading && editingSignature?.id === signature.id ? 'Editando...' : 'Editar'}
                                 </button>
                                 <button 
                                   onClick={() => handleDirectDelete(signature)}
-                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  className="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded touch-optimization mobile-text-xs"
                                   disabled={editLoading || deleteLoading === signature.id}
                                 >
                                   {deleteLoading === signature.id ? 'Excluindo...' : 'Excluir'}
@@ -574,7 +693,7 @@ export default function SignaturesPage() {
                                 {editableSignatures.has(signature.id) && signature.user.id === currentUser?.id ? (
                                   <button 
                                     onClick={() => handleApprovedEdit(signature)}
-                                    className="text-green-600 hover:text-green-800 text-sm font-medium"
+                                    className="text-green-600 hover:text-green-800 text-sm font-medium px-2 py-1 rounded touch-optimization mobile-text-xs"
                                     title="Você pode editar esta assinatura (aprovação concedida)"
                                   >
                                     ✓ Editar Agora
@@ -582,7 +701,7 @@ export default function SignaturesPage() {
                                 ) : (
                                   <button 
                                     onClick={() => openRequestModal(signature, 'EDIT')}
-                                    className="text-primary-600 hover:text-primary-800 text-sm"
+                                    className="text-primary-600 hover:text-primary-800 text-sm px-2 py-1 rounded touch-optimization mobile-text-xs"
                                   >
                                     Solicitar Edição
                                   </button>
@@ -590,7 +709,7 @@ export default function SignaturesPage() {
                                 
                                 <button 
                                   onClick={() => openRequestModal(signature, 'DELETE')}
-                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  className="text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded touch-optimization mobile-text-xs"
                                 >
                                   Solicitar Exclusão
                                 </button>
@@ -735,18 +854,18 @@ export default function SignaturesPage() {
                   </div>
                 </div>
 
-                <div className="flex space-x-3 pt-4">
+                <div className="flex space-x-3 pt-4 mobile-stack mobile-space-y-2">
                   <button
                     type="button"
                     onClick={() => setShowRequestModal(false)}
-                    className="flex-1 btn-secondary"
+                    className="flex-1 btn-secondary mobile-full"
                     disabled={requestLoading}
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 btn-primary flex items-center justify-center"
+                    className="flex-1 btn-primary flex items-center justify-center mobile-full"
                     disabled={requestLoading || !requestForm.reason.trim()}
                   >
                     {requestLoading ? (
@@ -767,7 +886,7 @@ export default function SignaturesPage() {
         {/* Edit Signature Modal */}
         {showEditModal && editingSignature && (
           <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content-large" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-lg font-display font-semibold text-gray-900 mb-4">
                 Editar Assinatura
               </h3>
@@ -827,18 +946,66 @@ export default function SignaturesPage() {
                   </div>
                 </div>
 
-                <div className="flex space-x-3 pt-4">
+                {/* Gerenciamento de Anexos */}
+                <div className="space-y-4">
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-md font-medium text-gray-900 mb-4">
+                      Gerenciar Anexos
+                    </h4>
+
+                    {uploadError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                        {uploadError}
+                      </div>
+                    )}
+
+                    {/* Upload de novos anexos */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Adicionar Novos Anexos
+                      </label>
+                      <FileUpload
+                        signatureId={editingSignature?.id}
+                        onUploadComplete={handleUploadComplete}
+                        onUploadError={handleUploadError}
+                        multiple={true}
+                        disabled={editLoading}
+                      />
+                    </div>
+
+                    {/* Lista de anexos atuais */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Anexos Atuais ({editingAttachments.length})
+                      </label>
+                      {loadingAttachments ? (
+                        <div className="flex justify-center py-4">
+                          <div className="loading-spinner"></div>
+                        </div>
+                      ) : (
+                        <AttachmentList
+                          attachments={editingAttachments}
+                          onDelete={handleDeleteAttachment}
+                          allowDelete={true}
+                          loading={loadingAttachments}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex space-x-3 pt-4 mobile-stack mobile-space-y-2">
                   <button
                     type="button"
                     onClick={() => setShowEditModal(false)}
-                    className="flex-1 btn-secondary"
+                    className="flex-1 btn-secondary mobile-full"
                     disabled={editLoading}
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 btn-primary flex items-center justify-center"
+                    className="flex-1 btn-primary flex items-center justify-center mobile-full"
                     disabled={editLoading}
                   >
                     {editLoading ? (
@@ -852,6 +1019,137 @@ export default function SignaturesPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Anexos */}
+        {showAttachmentsModal && (
+          <div className="modal-overlay" onClick={() => setShowAttachmentsModal(false)}>
+            <div className="modal-content-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-xl font-display font-semibold text-gray-900">
+                    Documentos Anexados
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {selectedSignatureAttachments.length} arquivo{selectedSignatureAttachments.length > 1 ? 's' : ''} anexado{selectedSignatureAttachments.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAttachmentsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {selectedSignatureAttachments.map((attachment, index) => (
+                  <div key={attachment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-4 flex-1">
+                        {/* Ícone do Arquivo */}
+                        <div className="flex-shrink-0">
+                          {attachment.mimeType.startsWith('image/') ? (
+                            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                              <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          ) : attachment.mimeType === 'application/pdf' ? (
+                            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                              <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Informações do Arquivo */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-lg font-medium text-gray-900 truncate">
+                            {attachment.filename}
+                          </h4>
+                          
+                          <div className="mt-2 grid grid-cols-2 gap-4 text-sm text-gray-600">
+                            <div>
+                              <span className="font-medium">Tamanho:</span> {formatFileSize(attachment.fileSize)}
+                            </div>
+                            <div>
+                              <span className="font-medium">Tipo:</span> {attachment.mimeType}
+                            </div>
+                            <div>
+                              <span className="font-medium">Enviado em:</span> {formatDate(attachment.uploadedAt)}
+                            </div>
+                            <div>
+                              <span className="font-medium">Arquivo #{index + 1}</span>
+                            </div>
+                          </div>
+
+                          {/* Informações Extras */}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {attachment.mimeType.startsWith('image/') && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                                </svg>
+                                Imagem
+                              </span>
+                            )}
+                            {attachment.mimeType === 'application/pdf' && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                                </svg>
+                                PDF
+                              </span>
+                            )}
+                            {(attachment.mimeType.includes('word') || attachment.mimeType.includes('document')) && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                </svg>
+                                Documento
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Botão de Download */}
+                      <div className="flex-shrink-0 ml-4">
+                        <button
+                          onClick={() => downloadAttachment(attachment.id, attachment.filename)}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Baixar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
+                <button
+                  onClick={() => setShowAttachmentsModal(false)}
+                  className="btn-secondary"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         )}

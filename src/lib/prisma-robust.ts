@@ -114,6 +114,19 @@ class RobustPrismaClient {
     }
   }
 
+  async signatureAttachment() {
+    return {
+      findUnique: (args: any) => this.executeWithRetry(() => this.client.signatureAttachment.findUnique(args)),
+      findMany: (args: any) => this.executeWithRetry(() => this.client.signatureAttachment.findMany(args)),
+      findFirst: (args: any) => this.executeWithRetry(() => this.client.signatureAttachment.findFirst(args)),
+      create: (args: any) => this.executeWithRetry(() => this.client.signatureAttachment.create(args)),
+      update: (args: any) => this.executeWithRetry(() => this.client.signatureAttachment.update(args)),
+      delete: (args: any) => this.executeWithRetry(() => this.client.signatureAttachment.delete(args)),
+      deleteMany: (args: any) => this.executeWithRetry(() => this.client.signatureAttachment.deleteMany(args)),
+      count: (args: any) => this.executeWithRetry(() => this.client.signatureAttachment.count(args)),
+    }
+  }
+
   // Método para testar conectividade
   async testConnection(): Promise<boolean> {
     try {

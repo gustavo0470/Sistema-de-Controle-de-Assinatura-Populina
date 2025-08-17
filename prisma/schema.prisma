@@ -3,10 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
-  directUrl         = env("DIRECT_URL")
-  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Sector {
@@ -42,19 +41,20 @@ model User {
 }
 
 model Signature {
-  id            String    @id @default(cuid())
+  id            String                @id @default(cuid())
   userId        String
   sectorId      String
   serverName    String
   sectorName    String
   reason        String
   token         String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  incrementalId Int       @unique @default(autoincrement()) @map("incremental_id")
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  incrementalId Int                   @unique @default(autoincrement()) @map("incremental_id")
   requests      Request[]
-  sector        Sector    @relation(fields: [sectorId], references: [id])
-  user          User      @relation(fields: [userId], references: [id])
+  attachments   SignatureAttachment[]
+  sector        Sector                @relation(fields: [sectorId], references: [id])
+  user          User                  @relation(fields: [userId], references: [id])
 
   @@map("signatures")
 }
@@ -74,7 +74,7 @@ model Request {
   signature     Signature     @relation(fields: [signatureId], references: [id], onDelete: Cascade)
   user          User          @relation(fields: [userId], references: [id])
 
-  @@index([status], name: "idx_req_status")
+  @@index([status], map: "idx_req_status")
   @@map("requests")
 }
 
@@ -86,8 +86,22 @@ model ChatMessage {
   isRead     Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  @@index([toUserId, isRead], name: "idx_chat_to")
+  @@index([toUserId, isRead], map: "idx_chat_to")
   @@map("chat_messages")
+}
+
+model SignatureAttachment {
+  id          String    @id @default(cuid())
+  signatureId String
+  filename    String
+  storagePath String
+  fileSize    Int
+  mimeType    String
+  uploadedAt  DateTime  @default(now())
+  signature   Signature @relation(fields: [signatureId], references: [id], onDelete: Cascade)
+
+  @@index([signatureId], map: "idx_attachment_signature")
+  @@map("signature_attachments")
 }
 
 enum UserRole {
