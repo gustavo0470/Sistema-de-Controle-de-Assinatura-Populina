@@ -10,7 +10,7 @@ const supabase = createClient(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authUser = await getAuthUser(request)
@@ -21,7 +21,8 @@ export async function DELETE(
       )
     }
 
-    const attachmentId = params.id
+    const { id } = await context.params
+    const attachmentId = id
 
     // Buscar anexo com dados da assinatura
     const attachment = await prisma.signatureAttachment.findUnique({
@@ -84,7 +85,7 @@ export async function DELETE(
 // Download de arquivo específico
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authUser = await getAuthUser(request)
@@ -95,7 +96,8 @@ export async function GET(
       )
     }
 
-    const attachmentId = params.id
+    const { id } = await context.params
+    const attachmentId = id
 
     // Buscar anexo
     const attachment = await prisma.signatureAttachment.findUnique({

@@ -117,7 +117,7 @@ https://goszc.space
     // Gerar o ZIP
     console.log(`🔄 Gerando arquivo ZIP...`)
     const zipBlob = await zip.generateAsync({ 
-      type: 'nodebuffer',
+      type: 'arraybuffer',
       compression: 'DEFLATE',
       compressionOptions: { level: 6 }
     })
@@ -125,14 +125,16 @@ https://goszc.space
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     const filename = `PDFs_Assinaturas_${timestamp}.zip`
 
-    console.log(`✅ ZIP gerado: ${filename} (${(zipBlob.length / 1024 / 1024).toFixed(2)}MB)`)
+    console.log(`✅ ZIP gerado: ${filename} (${(zipBlob.byteLength / 1024 / 1024).toFixed(2)}MB)`)
 
-    const response = new NextResponse(zipBlob)
-    response.headers.set('Content-Disposition', `attachment; filename="${filename}"`)
-    response.headers.set('Content-Type', 'application/zip')
-    response.headers.set('Content-Length', zipBlob.length.toString())
-
-    return response
+    return new NextResponse(zipBlob, {
+      status: 200,
+      headers: {
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Type': 'application/zip',
+        'Content-Length': zipBlob.byteLength.toString()
+      }
+    })
 
   } catch (error) {
     console.error('Erro ao gerar export de PDFs:', error)

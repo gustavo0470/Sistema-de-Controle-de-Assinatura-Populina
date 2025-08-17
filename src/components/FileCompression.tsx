@@ -83,7 +83,7 @@ export class FileCompressor {
       
       // Só usar a versão comprimida se a redução for significativa (>5%)
       if (reduction > 5) {
-        const compressedFile = new File([compressedBytes], file.name, {
+        const compressedFile = new File([new Uint8Array(compressedBytes)], file.name, {
           type: 'application/pdf',
           lastModified: Date.now()
         })
